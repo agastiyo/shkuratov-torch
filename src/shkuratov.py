@@ -14,7 +14,7 @@ class Material():
 class ShkuratovModel():
   def __init__(self):
     # Cache Gauss-Legendre points and weights once
-    self.gl_x,self.gl_w = np.polynomial.legendre.leggauss(16) #16 to 32 should work here, dim G
+    self.gl_x,self.gl_w = np.polynomial.legendre.leggauss(16) # 16 to 32 should work here, dim G
     self.gl_x = torch.tensor(self.gl_x).unsqueeze(0) # dim 1xG
     self.gl_w = torch.tensor(self.gl_w).unsqueeze(0) # dim 1xG
     
@@ -94,6 +94,19 @@ class ShkuratovModel():
     known_k = mat.k[0]
     known_lams_n = mat.n[1]
     known_lams_k = mat.k[1]
+    
+    # if both have the same tabulated wavelengths, see comments below for what the lines are doing
+    if known_lams_n == known_lams_k:
+      requested_lams = torch.clamp(lams, min=known_lams_n[0], max=known_lams_n[-1])
+      lam_upper_idx = torch.searchsorted(known_lams_n, requested_lams_n).clamp(min=1)
+      lam_lower_idx = (lam_upper_idx_n - 1)
+      upper_lams = known_lams_n[lam_upper_idx]
+      lower_lams = known_lams_n[lam_lower_idx]
+      
+      requested_n = known_n[lam_lower_idx] + (known_n[lam_upper_idx]-known_n[lam_lower_idx])*((requested_lams - lower_lams)/(upper_lams - lower_lams))
+      requested_k = known_k[lam_lower_idx] + (known_k[lam_upper_idx]-known_k[lam_lower_idx])*((requested_lams - lower_lams)/(upper_lams - lower_lams))
+      
+      return requested_n,requested_k
     
     # Clamp out of range wavelengths to the min and max, so out of range wavelengths are just requesting the boundary values
     requested_lams_n = torch.clamp(lams, min=known_lams_n[0], max=known_lams_n[-1])
