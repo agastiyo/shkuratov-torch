@@ -33,7 +33,7 @@ class ShkuratovModel():
   
   def simulate_one_component(self, mat:Material, size:float, porosity:float, lams:torch.Tensor):
     ''' A forward pass of the Shkuratov model with one component'''
-    assert 0 <= porosity <= 1
+    assert 0 <= porosity < 1
     
     # Build the optical constant lists using the specified wavelengths.
     lams = lams.unsqueeze(1)
@@ -96,10 +96,10 @@ class ShkuratovModel():
     known_lams_k = mat.k[1]
     
     # if both have the same tabulated wavelengths, see comments below for what the lines are doing
-    if known_lams_n == known_lams_k:
+    if torch.equal(known_lams_n, known_lams_k):
       requested_lams = torch.clamp(lams, min=known_lams_n[0], max=known_lams_n[-1])
-      lam_upper_idx = torch.searchsorted(known_lams_n, requested_lams_n).clamp(min=1)
-      lam_lower_idx = (lam_upper_idx_n - 1)
+      lam_upper_idx = torch.searchsorted(known_lams_n, requested_lams).clamp(min=1, max=len(known_lams_n)-1)
+      lam_lower_idx = (lam_upper_idx - 1)
       upper_lams = known_lams_n[lam_upper_idx]
       lower_lams = known_lams_n[lam_lower_idx]
       
@@ -113,8 +113,8 @@ class ShkuratovModel():
     requested_lams_k = torch.clamp(lams, min=known_lams_k[0], max=known_lams_k[-1])
     
     # Get the index of known wavelengths right above and below the requested wavelength
-    lam_upper_idx_n = torch.searchsorted(known_lams_n, requested_lams_n).clamp(min=1)
-    lam_upper_idx_k = torch.searchsorted(known_lams_k, requested_lams_k).clamp(min=1)
+    lam_upper_idx_n = torch.searchsorted(known_lams_n, requested_lams_n).clamp(min=1, max=len(known_lams_n)-1)
+    lam_upper_idx_k = torch.searchsorted(known_lams_k, requested_lams_k).clamp(min=1, max=len(known_lams_k)-1)
     lam_lower_idx_n = (lam_upper_idx_n - 1)
     lam_lower_idx_k = (lam_upper_idx_k - 1)
     
