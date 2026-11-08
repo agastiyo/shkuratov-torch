@@ -27,16 +27,19 @@ class ShkuratovModel():
     self.Rf_theta = (self.gl_x*(Rf_interval[1] - Rf_interval[0]))/2 + (Rf_interval[0] + Rf_interval[1])/2
     self.Rf_W = (self.gl_w*(Rf_interval[1] - Rf_interval[0]))/2
   
-  def simulate(self): # add OCs, fractions, grain sizes, porosity, wavelengths
-    # Forward pass
-    pass
+  def simulate(self, mats, fracs, sizes, porosities, lams):
+    assert len(mats) == len(fracs) == len(sizes) == len(porosities) == len(lams)
+    assert [len(mats[i]) == len(fracs[i]) == len(sizes[i]) for i in len(mats)]
+    fracs,sizes,lams,lams_mask,batch_size,K_max = self.__pad(fracs,sizes,lams)
+    mats = self.__pad_mats(mats,K_max)
+    
   
   def simulate_one_component(self, mat:Material, size:float, porosity:float, lams:torch.Tensor):
     ''' A forward pass of the Shkuratov model with one component'''
     assert 0 <= porosity < 1
     
     # Build the optical constant lists using the specified wavelengths.
-    lams = lams.unsqueeze(1)
+    lams = lams.unsqueeze(1) # dim Lx1
     n,k = self._build_oc(mat,lams)  # dim Lx1
     
     tau = (4*torch.pi*k*size)/lams # dim Lx1
@@ -129,3 +132,36 @@ class ShkuratovModel():
     requested_k = known_k[lam_lower_idx_k] + (known_k[lam_upper_idx_k]-known_k[lam_lower_idx_k])*((requested_lams_k - lower_lams_k)/(upper_lams_k - lower_lams_k))
     
     return requested_n,requested_k
+
+  def _build_ocs(self,mats):
+    # batched version of building the opical constants.
+    
+    return
+
+  def __pad_mats(self,mats,K_max):
+    dummy = Material(torch.tensor([torch.tensor([1,1]),
+                                   torch.tensor([0.1,0.2])]),
+                     torch.tensor([torch.tensor([0,0]),
+                                   torch.tensor([0.1,0.2])]))
+    
+    for composition in mats:
+      while(len(composition) < K_max):
+        composition.append(dummy)
+    
+    return mats
+  
+  def __pad(self,fracs,sizes, lams):
+    '''Change lams from BxL ragged list of tensors to BxL_max tensor'''
+    
+    fracs = torch.nn.utils.rnn.pad_sequence(fracs,batch_first=True,padding_value=0)
+    
+    sizes = torch.nn.utils.rnn.pad_sequence(sizes,batch_first=True,padding_value=5.0)
+    
+    lam_mask = [torch.ones_like(t, dtype=torch.bool) for t in lams]
+    lams = torch.nn.utils.rnn.pad_sequence(lams, batch_first=True, padding_value=0.1)
+    lam_mask = torch.nn.utils.rnn.pad_sequence(lam_mask, batch_first=True, padding_value=False)
+    
+    batch_size=fracs.shape[0]
+    K_max = fracs.shape[1]
+    
+    return fracs,sizes,lams,lam_mask,batch_size,K_max
