@@ -5,8 +5,8 @@ class Material():
   def __init__(self, n:torch.Tensor, k:torch.Tensor):
     assert n.shape[0] == 2 #(n, lambda)
     assert k.shape[0] == 2 #(k, lambda)
-    # TODO: assert that n and k wavelengths are sorted in ascending order
-    # TODO: assert that n and k wavelengths have no duplicates
+    assert torch.all(n[1][:-1] < n[1][1:]) # assert sorted ascending and no dupes
+    assert torch.all(k[1][:-1] < k[1][1:])
     self.n = n
     self.k = k
 
